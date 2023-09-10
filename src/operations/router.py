@@ -27,6 +27,7 @@ async def scroll(new_scroll: Scroll, session: AsyncSession = Depends(get_async_s
     round_id = await session.execute(round_id)
     values['round_id'] = int(round_id.first()[0])
     list_nums = list(range(1, 11))
+    random.shuffle(list_nums)
     for i in list_nums:
         check_jackpot = select(func.count()).select_from(Log).where(
             Log.user_id == values.get('user_id'),
@@ -62,7 +63,7 @@ async def quantity_users(session: AsyncSession = Depends(get_async_session)):
     quantity_rounds = quantity_rounds.scalars().all()
     resp = {'details': []}
     for round_id in quantity_rounds:
-        qnt_users = select(func.count(Log.user_id)).select_from(Log).where(Log.round_id == round_id)
+        qnt_users = select(func.count(func.distinct(Log.user_id))).select_from(Log).where(Log.round_id == round_id)
         qnt_users = await session.execute(qnt_users)
         qnt_users = qnt_users.scalars().first()
         resp['details'].append({'round': round_id,
@@ -76,7 +77,6 @@ async def most_active_users(session: AsyncSession = Depends(get_async_session)):
     users = select(Log.user_id).group_by(Log.user_id).order_by(func.count(Log.user_id))
     users = await session.execute(users)
     users = users.scalars().all()
-    print(users)
     resp = {'details': []}
     for user in users[::-1]:
         average_scroll = select(func.count()).select_from(Log).where(Log.user_id == user)

@@ -1,3 +1,4 @@
+import json
 import random
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_async_session
 from operations.models import Log, Cell
 from operations.schemas import Scroll
+from operations.utils import ManageScroll
 from users.models import User
 
 router = APIRouter(
@@ -26,25 +28,10 @@ async def scroll(new_scroll: Scroll, session: AsyncSession = Depends(get_async_s
     round_id = select(User.round_id).where(User.id == values.get('user_id'))
     round_id = await session.execute(round_id)
     values['round_id'] = int(round_id.first()[0])
-    list_nums = list(range(1, 11))
-    random.shuffle(list_nums)
-    for i in list_nums:
-        check_jackpot = select(func.count()).select_from(Log).where(
-            Log.user_id == values.get('user_id'),
-            Log.round_id == values.get('round_id'))
-        check_jackpot = await session.execute(check_jackpot)
-        if check_jackpot.scalars().first() >= 10:
-            await session.execute(
-                update(User).values(round_id=values.get('round_id') + 1).where(User.id == values.get('user_id'))
-            )
-            await session.commit()
-            return {'details': "Congratulation, it's jackpot"}
-
-        values['cell_id'] = i
-        check_cell = await session.execute(
-            select(Log).where(Log.user_id == values.get('user_id'), Log.cell_id == values.get('cell_id'), Log.round_id == values.get('round_id')))
-        if not check_cell.scalars().all():
-            break
+    scroll = ManageScroll(values.get('user_id'))
+    values['cell_id'] = scroll.get_random_cell()
+    if values['cell_id'] == 11:
+        return {'details': "Congratulation, it's jackpot"}
     query = insert(Log).values(**values)
     await session.execute(query)
     weight = select(Cell.weight).where(Cell.id == values.get('cell_id'))
@@ -53,7 +40,7 @@ async def scroll(new_scroll: Scroll, session: AsyncSession = Depends(get_async_s
     await session.commit()
 
     return {'details': {'cell': values.get('cell_id'),
-            'weight': weight}}
+                        'weight': weight}}
 
 
 @router.get('/quantity_users')
@@ -93,5 +80,3 @@ async def most_active_users(session: AsyncSession = Depends(get_async_session)):
         })
 
     return resp
-
-

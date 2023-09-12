@@ -4,9 +4,9 @@ services:
     image: postgres:15
     container_name: db_roulette
     command:
-      -p 1221
+      -p 5432
     expose:
-      - 1221
+      - 5432
     env_file:
       - .env-prod
 
@@ -17,7 +17,12 @@ services:
       - .env-prod
     container_name: roulette
     command: [ "/roulette/app.sh" ]
+    volumes:
+      - cells:/roulette/src/operations/
     ports:
       - 5555:8000
     depends_on:
       - db
+
+volumes:
+  cells:
